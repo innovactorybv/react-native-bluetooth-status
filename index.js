@@ -55,6 +55,9 @@ class BluetoothManager {
   }
 
   async state() {
+    if (Platform.OS === "android") {
+      return RNBluetoothManager.getBluetoothState()
+    }
     return new Promise((resolve, reject) => {
       waitUntil()
         .interval(100)
