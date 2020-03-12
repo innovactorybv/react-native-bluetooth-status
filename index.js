@@ -9,6 +9,7 @@ import {
 import waitUntil from "@cs125/wait-until";
 
 const { RNBluetoothManager } = NativeModules;
+const RNBluetoothManagerEventEmitter = new NativeEventEmitter(RNBluetoothManager);
 
 const BT_STATUS_EVENT = "bluetoothStatus";
 class BluetoothManager {
@@ -22,24 +23,35 @@ class BluetoothManager {
     | "on"
     | "unknown";
   listener: function;
+  subscription: function;
 
-  constructor() {
-    const bluetoothEvent = new NativeEventEmitter(RNBluetoothManager);
-    this.subscription = bluetoothEvent.addListener(BT_STATUS_EVENT, state => {
+  startSubscribeIfNeeded() {
+    if (this.subscription) return // already subscribed
+    this.subscription = RNBluetoothManagerEventEmitter.addListener(BT_STATUS_EVENT, state => {
       const nativeState = Platform.OS === "ios" ? state : state.status;
       this.bluetoothState = nativeState;
       if (this.listener) {
         this.listener(this.bluetoothState === "on");
       }
-    });
+    })
+  }
+
+  unsubscrubeIfIfNoActiveListener() {
+    if (!this.subscription) return; // already unsubscribed
+    if (this.listener) return; // still have active listeners
+    this.subscription.remove();
+    this.subscription = undefined;
+    this.bluetoothState = undefined
   }
 
   addListener(listener: function) {
+    this.startSubscribeIfNeeded()
     this.listener = listener;
   }
 
   removeListener() {
     this.listener = undefined;
+    this.unsubscrubeIfIfNoActiveListener()
   }
 
   async state() {
@@ -48,18 +60,18 @@ class BluetoothManager {
         .interval(100)
         .times(10)
         .condition(() => {
+          this.startSubscribeIfNeeded()
           return this.bluetoothState !== undefined;
         })
         .done(() => {
           resolve(this.bluetoothState === "on");
+          this.unsubscrubeIfIfNoActiveListener();
         });
     });
   }
 
   enable(enabled: boolean = true) {
-    if (Platform.OS === "android") {
-      RNBluetoothManager.setBluetoothState(enabled);
-    }
+    RNBluetoothManager.setBluetoothState(enabled);
   }
 
   async disable() {
@@ -80,13 +92,12 @@ export const useBluetoothStatus = () => {
   const [isPending, setPending] = useState(true);
 
   useEffect(() => {
-    const bluetoothEvent = new NativeEventEmitter(RNBluetoothManager);
-    const subscription = bluetoothEvent.addListener(BT_STATUS_EVENT, state => {
+    const subscription = RNBluetoothManagerEventEmitter.addListener(BT_STATUS_EVENT, state => {
       const nativeState = Platform.OS === "ios" ? state : state.status;
       setStatus(nativeState === "on");
     });
     return () => {
-      bluetoothEvent.removeSubscription(subscription);
+      subscription.remove();
     };
   }, []);
 

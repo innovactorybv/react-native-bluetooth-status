@@ -22,28 +22,41 @@
 
 #pragma mark Initialization
 
-- (instancetype)init
-{
-    if (self = [super init]) {
-        self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:dispatch_get_main_queue() options:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:0] forKey:CBCentralManagerOptionShowPowerAlertKey]];
-    }
-
-    return self;
-}
-
 + (BOOL)requiresMainQueueSetup
 {
     return YES;
 }
 
+- (void) initializeCentralManagerIfNeeded {
+    if (self.centralManager == nil) {
+        self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:dispatch_get_main_queue() options:[NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBCentralManagerOptionShowPowerAlertKey]];
+    }
+}
+
 RCT_EXPORT_MODULE();
 
 RCT_EXPORT_METHOD(initialize) {
+    [self initializeCentralManagerIfNeeded];
     [self centralManagerDidUpdateState:self.centralManager];
+}
+
+RCT_EXPORT_METHOD(setBluetoothState:(BOOL)enabled)
+{
+    if (@available(iOS 13.0, *)) {
+        // Initiating a new CBCentralManager with the CBCentralManagerOptionShowPowerAlertKey will
+        // allow the user to enable bluetooth via a system prompt. This only works on > iOS 13
+        [[CBCentralManager alloc] initWithDelegate:nil queue:nil options: [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBCentralManagerOptionShowPowerAlertKey]];
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
+        });
+    }
 }
 
 - (NSString *) centralManagerStateToString: (int)state
 {
+    [self initializeCentralManagerIfNeeded];
+    
     switch (state) {
         case CBCentralManagerStateUnknown:
             return @"unknown";
@@ -66,11 +79,18 @@ RCT_EXPORT_METHOD(initialize) {
 
 -(void)startObserving {
     hasListeners = YES;
+    [self initializeCentralManagerIfNeeded];
     [self sendEventWithName:@"bluetoothStatus" body:stateName];
 }
 
 -(void)stopObserving {
     hasListeners = NO;
+    self.centralManager = nil;
+}
+
+- (void)addListener:(NSString *)eventName {
+    [super addListener:eventName];
+    [self sendEventWithName:@"bluetoothStatus" body:stateName];
 }
 
 - (void)centralManagerDidUpdateState:(CBCentralManager *)central
