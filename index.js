@@ -1,5 +1,5 @@
 // @flow
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Platform } from "react-native";
 import {
   NativeModules,
@@ -85,30 +85,30 @@ class BluetoothManager {
 export const BluetoothStatus = new BluetoothManager();
 
 const setBluetoothState = (enable: boolean = true) => {
-  if (Platform.OS === "android") {
-    RNBluetoothManager.setBluetoothState(enable);
-  }
+  RNBluetoothManager.setBluetoothState(enable);
 };
 
 export const useBluetoothStatus = () => {
-  const [status, setStatus] = useState(undefined);
-  const [isPending, setPending] = useState(true);
+  const [status, setStatus] = useState(undefined)
 
   useEffect(() => {
     const subscription = RNBluetoothManagerEventEmitter.addListener(BT_STATUS_EVENT, state => {
       const nativeState = Platform.OS === "ios" ? state : state.status;
-      setStatus(nativeState === "on");
+      
+      // ignore for in-flight state changes
+      if (!nativeState ||  nativeState === "unknown" || nativeState === "resetting") return
+
+      setStatus({
+        enabled: nativeState === "on",
+        granted: nativeState === "on" || nativeState === "off",
+      })
     });
     return () => {
       subscription.remove();
     };
   }, []);
 
-  useEffect(() => {
-    if (status !== undefined && isPending) {
-      setPending(false);
-    }
-  }, [status]);
-
-  return [status, isPending, setBluetoothState];
+  // btStatus, granted, pending, 
+  if (!status) return [undefined, undefined, true, setBluetoothState]
+  return [status.enabled, status.granted, false, setBluetoothState]
 };
