@@ -32,6 +32,21 @@
     return YES;
 }
 
+- (BOOL)isBluetoothDenied
+{
+    if (@available(iOS 13.0, *)) {
+        return [[CBManager new] authorization] == CBManagerAuthorizationDenied;
+    }
+    return NO;
+}
+
+- (void)openSettings
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
+    });
+}
+
 - (NSString *) centralManagerStateToString: (CBManagerState)state
 {
     switch (state) {
@@ -77,9 +92,14 @@
 RCT_EXPORT_MODULE();
 
 
+
 RCT_EXPORT_METHOD(setBluetoothState:(BOOL)enabled)
 {
-    if (@available(iOS 13.0, *)) {
+    if ([self isBluetoothDenied]) {
+        // iOS >= 13 only: open app settings to grant denied bluetooth access
+        [self openSettings];
+        return;
+    } else if (@available(iOS 13.0, *)) {
         // Initiating a new CBCentralManager with the CBCentralManagerOptionShowPowerAlertKey will
         // allow the user to enable bluetooth via a system prompt. This only works on >= iOS 13
         CBCentralManager *centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil options: [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:CBCentralManagerOptionShowPowerAlertKey]];
@@ -90,9 +110,8 @@ RCT_EXPORT_METHOD(setBluetoothState:(BOOL)enabled)
             self.centralManager = centralManager;
         }
     } else {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
-        });
+        // iOS 12 and lower we can only open settings to enable bluetooth
+        [self openSettings];
     }
 }
 
