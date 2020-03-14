@@ -1,7 +1,7 @@
 # react-native-bluetooth-status
 
 React Native library to monitor and manage bluetooth state. Monitoring the bluetooth state works cross-plaform (iOS & Android).
-In addition, Android can directly enable / disable bluetooth.
+
 **V2 introduced new Hooks API!**
 
 ## Installation
@@ -63,18 +63,20 @@ import { useBluetoothStatus } from 'react-native-bluetooth-status';
 
 ...
 
-const [btStatus, isPending, setBluetooth] = useBluetoothStatus();
+const [btStatus, btGranted, isPending, setBluetooth] = useBluetoothStatus();
 return (
   {!isPending && <Text>{btStatus ? 'On' : 'Off'}</Text>}
+  {!isPending && <Text>{btGranted ? 'Granted' : 'Denied'}</Text>}
   <Button title="Toggle BT" onPress={() => setBluetooth(!btStatus)} />
 )
 ```
 
 | Variable         | Description                                                                                                                     |
 | :--------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| **btStatus**     | Current Bluetooth status. Starts undefined, but updated asynchronously right away. Updated automatically if status changes.     |
+| **btStatus**     | Current bluetooth status. Starts undefined, but updated asynchronously right away. Updated automatically if status changes.     |
+| **btGranted**    | Current bluetooth permission granted status. Starts undefined, but updated asynchronously right away. Updated automatically if status changes.    |
 | **isPending**    | Starts at true and after getting first Bluetooth status, is set to false. Helps to know when btStatus is not undefined anymore. |
-| **setBluetooth** | **Android Only** Enables / disabled bluetooth. Takes boolean parameter (defaults to true) to select the operation.              |
+| **setBluetooth** | Function to set the bluetooth status. On android it can be toggled on / off using a boolean parameter. On iOS this method can be used to prompt for permission and/or enable bluetooth.              |
 
 ### Imperative API
 
@@ -93,8 +95,8 @@ For further usage examples, see the [example project](examples/BTStatusTest/) us
 
 | Method             | Description                                                                                                                 |
 | :----------------- | :-------------------------------------------------------------------------------------------------------------------------- |
-| **state**          | Returns a promise, which will return a boolean value, `true` if bluetooth is enabled, `false` if disabled.                  |
+| **state**          | Returns a promise, which will return a boolean value, `true` if bluetooth is available, `false` if unavailable.             |
 | **addListener**    | Takes function parameter, which will be run when BT status changes, with the new BT on/off status (true / false).           |
 | **removeListener** | Removes listener.                                                                                                           |
-| **enable**         | **Android only** Changes bluetooth state. Takes boolean parameter (defaults to true), `true` to enable, `false` to disable. |
+| **enable**         | Function to set the bluetooth status. On android it can be toggled on / off using a boolean parameter. On iOS this method can be used to prompt for permission and/or enable bluetooth.  |
 | **disable**        | **Android only** Disables bluetooth, same end result as calling `enable(false)`.                                            |
