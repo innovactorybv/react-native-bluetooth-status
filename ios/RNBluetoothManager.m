@@ -71,8 +71,9 @@
 
 - (void) initializeCentralManagerIfNeeded {
     #if TARGET_OS_SIMULATOR
+    // no bluetooth permission or power prompts on simulator
     self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
-    return
+    return;
     #endif
     
     // Only instantiate CBCentralManager when bluetooth permissions are available otherwise the permission
