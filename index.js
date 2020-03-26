@@ -103,6 +103,18 @@ export const useBluetoothStatus = () => {
         granted: nativeState === "on" || nativeState === "off",
       })
     });
+
+    // Android doesn't send status when addListener is called so
+    // we actively fetch the current power status
+    if (Platform.OS === "android") {
+      RNBluetoothManager.getBluetoothState().then(enabled => {
+        setStatus({
+          enabled: enabled,
+          granted: true, // android has no bluetooth permission
+        })
+      })
+    }
+
     return () => {
       subscription.remove();
     };
