@@ -6,7 +6,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
-import android.support.annotation.Nullable;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.LifecycleEventListener;
@@ -15,61 +17,64 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 public class RNBluetoothManagerModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
 
-    final static String MODULE_NAME = "RNBluetoothManager";
-    final static String BT_STATUS_EVENT = "bluetoothStatus";
-    final static String BT_STATUS_PARAM = "status";
-    final static String BT_STATUS_ON = "on";
-    final static String BT_STATUS_OFF = "off";
-
-    private final ReactApplicationContext reactContext;
+    private final static String MODULE_NAME = "RNBluetoothManager";
+    private final static String BT_STATUS_EVENT = "bluetoothStatus";
+    private final static String BT_STATUS_PARAM = "status";
+    private final static String BT_STATUS_ON = "on";
+    private final static String BT_STATUS_OFF = "off";
 
     private BluetoothAdapter btAdapter;
 
-    private void sendEvent(ReactContext reactContext,
-                           String eventName,
-                           @Nullable WritableMap params) {
+    RNBluetoothManagerModule(@NonNull ReactApplicationContext reactContext) {
+        super(reactContext);
+    }
+
+    private void sendEvent(ReactContext reactContext, @Nullable WritableMap params) {
         reactContext
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit(eventName, params);
+                .emit(RNBluetoothManagerModule.BT_STATUS_EVENT, params);
     }
 
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            WritableMap params = Arguments.createMap();
-            if (action != null && action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
-                        BluetoothAdapter.ERROR);
-                switch (state) {
-                    case BluetoothAdapter.STATE_OFF:
-                        params.putString(BT_STATUS_PARAM, BT_STATUS_OFF);
-                        sendEvent(reactContext, BT_STATUS_EVENT, params);
-                        break;
-                    case BluetoothAdapter.STATE_ON:
-                        params.putString(BT_STATUS_PARAM, BT_STATUS_ON);
-                        sendEvent(reactContext, BT_STATUS_EVENT, params);
-                        break;
+    @Nullable
+    private BroadcastReceiver receiver;
+
+    @Override
+    public void initialize() {
+        super.initialize();
+        receiver =  new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                final String action = intent.getAction();
+                WritableMap params = Arguments.createMap();
+                if (action != null && action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                    final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+                            BluetoothAdapter.ERROR);
+                    switch (state) {
+                        case BluetoothAdapter.STATE_OFF:
+                            params.putString(BT_STATUS_PARAM, BT_STATUS_OFF);
+                            sendEvent(getReactApplicationContext(), params);
+                            break;
+                        case BluetoothAdapter.STATE_ON:
+                            params.putString(BT_STATUS_PARAM, BT_STATUS_ON);
+                            sendEvent(getReactApplicationContext(), params);
+                            break;
+                    }
                 }
             }
-        }
-    };
+        };
 
-    public RNBluetoothManagerModule(ReactApplicationContext reactContext) {
-        super(reactContext);
-        this.reactContext = reactContext;
-        reactContext.addLifecycleEventListener(this);
+        getReactApplicationContext().addLifecycleEventListener(this);
         btAdapter = BluetoothAdapter.getDefaultAdapter();
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        reactContext.registerReceiver(receiver, filter);
+        getReactApplicationContext().registerReceiver(receiver, filter);
     }
 
+    @NonNull
     @Override
     public String getName() {
         return MODULE_NAME;
@@ -104,19 +109,22 @@ public class RNBluetoothManagerModule extends ReactContextBaseJavaModule impleme
                 WritableMap params = Arguments.createMap();
                 String enabled = btAdapter != null && btAdapter.isEnabled() ? BT_STATUS_ON : BT_STATUS_OFF;
                 params.putString(BT_STATUS_PARAM, enabled);
-                sendEvent(reactContext, BT_STATUS_EVENT, params);
+                sendEvent(getReactApplicationContext(), params);
 
             }
         }, 10);
     }
 
     @Override
-    public void onHostPause() {
-
-    }
+    public void onHostPause() { }
 
     @Override
-    public void onHostDestroy() {
-        reactContext.unregisterReceiver(receiver);
+    public void onHostDestroy() { }
+
+    @Override
+    public void onCatalystInstanceDestroy() {
+        if (receiver != null) {
+            getReactApplicationContext().unregisterReceiver(receiver);
+        }
     }
 }
